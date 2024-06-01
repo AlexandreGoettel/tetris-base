@@ -52,19 +52,16 @@ class Block(pygame.sprite.Sprite):
         self.i, self.j = i, j  # Grid coordinates, not screen position
 
     def update(self, screen, update_grid=False):
+        """Convert grid position to pixel locations and update screen if neccessary."""
         self.rect.x, self.rect.y = screen.get_coords(self.i, self.j)
         if update_grid:
             screen.checksum[self.j][self.i] = 1
-        # if self.i < 0 or self.i >= len(screen.checksum[0])\
-        #         or self.j < 0 or self.j >= len(screen.checksum):
-        #     return
-        # if self.i > 0:
-        #     screen.checksum[self.j][self.i - 1] = 0
-        # screen.checksum[self.j][self.i] = 1
 
     def check_move(self, screen, direction):
         """Check if increasing j by 1 is possible."""
         if direction == "down":
+            if self.j < -1:
+                return True
             if (not self.j + 1 == len(screen.checksum))\
                     and (not screen.checksum[self.j + 1][self.i]):
                 return True
@@ -101,24 +98,35 @@ class Tetris:
             "T": (128, 0, 128),
             "L": (255, 127, 0),
         }
-        block_type = random.choice(colour_table.keys()) if block_type == "random" else block_type
+        coord_table = {
+            "O": ((4, 5, 4, 5), (0, 0, 1, 1)),
+            "I": ((4, 4, 4, 4), (-3, -2, -1, 0)),
+            "S": ((4, 5, 5, 6), (0, 0, -1, -1)),
+            "Z": ((4, 5, 5, 6), (-1, -1, 0, 0)),
+            "J": ((4, 5, 5, 5), (0, 0, -1, -2)),
+            "T": ((4, 5, 6, 5), (0, 0, 0, -1)),
+            "L": ((5, 4, 4, 4), (0, 0, -1, -2)),
+        }
+        block_type = random.choice(list(colour_table.keys()))\
+            if block_type == "random" else block_type
         self.block_type = block_type
         self.colour = colour_table[block_type]
-        self.blocks = self.assemble(screen)
+        self.blocks = self.assemble(screen, *coord_table[block_type])
 
-    def assemble(self, screen):
-        assert self.block_type == "O"  # TODO
-        x, y = [4, 5, 4, 5], [0, 0, 1, 1]
+    def assemble(self, screen, x, y):
+        """Transform assortment of coords to a tetromino made of blocks."""
         blocks = []
         for xi, yi in zip(x, y):
             blocks.append(Block(screen, colour=self.colour, i=xi, j=yi))
         return blocks
 
     def rotate(self, direction):
+        """Implement gamebox-system rotation."""
         if self.block_type == "O":
             return
 
     def move(self, screen, direction):
+        """Move either "down", "left", or "right"."""
         for block in self.blocks:
             if not block.check_move(screen, direction):
                 break
@@ -127,6 +135,7 @@ class Tetris:
                 block.move(direction)
             return True
         return False
+
 
 class Screen:
     """Hold methods and information related to screen placement and drawing."""
@@ -222,7 +231,7 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
                         block.update(screen, update_grid=True)
 
                 # Spawn new piece
-                active_piece = Tetris(screen, "O")  # TODO: random
+                active_piece = Tetris(screen, "random")
                 active_blocks.add(*active_piece.blocks)
 
             # Update time tracking
@@ -253,7 +262,7 @@ def main(tickrate=30):
     active_blocks = pygame.sprite.Group()
     inactive_blocks = pygame.sprite.Group()
 
-    active_piece = Tetris(screen, "O")  # TODO: random
+    active_piece = Tetris(screen, "random")
     active_blocks.add(*active_piece.blocks)
     active_blocks.update(screen)
     active_blocks.draw(surf)
