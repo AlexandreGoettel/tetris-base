@@ -190,10 +190,38 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
         if current_time - move_down_timer > move_down_interval:
             has_moved_down = active_piece.move(screen, "down")
             if not has_moved_down:
-                # Spawn new piece
+                # Update board
                 active_blocks.update(screen, update_grid=True)
                 inactive_blocks.add(*active_piece.blocks)
                 active_blocks.remove(*active_piece.blocks)
+
+                # Check for line clear
+                indices_to_clear, to_remove = [], []
+                for j, line in enumerate(screen.checksum):
+                    if line.checksum != 1023:
+                        continue
+
+                    indices_to_clear.append(j)
+                    for block in inactive_blocks:
+                        if block.j == j:
+                            to_remove.append(block)
+
+                # Clear lines
+                for block in to_remove:
+                    screen.checksum[block.j][block.i] = 0
+                    inactive_blocks.remove(block)
+
+                # Update blocks above cleared lines
+                for j in indices_to_clear:
+                    blocks_to_move = [block for block in inactive_blocks if block.j < j]
+                    for block in blocks_to_move:
+                        screen.checksum[block.j][block.i] = 0
+
+                    for block in blocks_to_move:
+                        block.move("down")
+                        block.update(screen, update_grid=True)
+
+                # Spawn new piece
                 active_piece = Tetris(screen, "O")  # TODO: random
                 active_blocks.add(*active_piece.blocks)
 
