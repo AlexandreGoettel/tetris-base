@@ -149,6 +149,40 @@ class Screen:
         return x_coord, y_coord
 
 
+def run_game_loop(active_blocks, inactive_blocks, screen, surf,
+                  active_piece, move_down_interval, move_down_timer, borders):
+    """Run one game loop logic."""
+    state = "RUNNING"
+    for event in pygame.event.get():
+        if event.type == KEYDOWN and event.key == K_ESCAPE:
+            state = "SCORESCREEN"
+        elif event.type == QUIT:
+            state = "SCORESCREEN"
+
+    if state == "RUNNING":
+        current_time = pygame.time.get_ticks()
+        if current_time - move_down_timer > move_down_interval:
+            has_moved_down = active_piece.move_down(screen)
+            if not has_moved_down:
+                # Spawn new piece
+                active_blocks.update(screen, update_grid=True)
+                inactive_blocks.add(*active_piece.blocks)
+                active_blocks.remove(*active_piece.blocks)
+                active_piece = Tetris(screen, "O")  # TODO: random
+                active_blocks.add(*active_piece.blocks)
+
+            active_blocks.update(screen)
+            surf.fill((0, 80, 102))
+            for group in borders, active_blocks, inactive_blocks:
+                group.draw(surf)
+            pygame.display.flip()
+
+            # Update time tracking
+            move_down_timer = current_time
+
+    return state, active_blocks, inactive_blocks, screen, active_piece
+
+
 def main(tickrate=30):
     # Define game variables
     clock = pygame.time.Clock()
@@ -170,34 +204,16 @@ def main(tickrate=30):
     active_blocks.update(screen)
     active_blocks.draw(surf)
     pygame.display.flip()
+    state = "RUNNING"
 
     # Game loop
     while True:
-        for event in pygame.event.get():
-            if event.type == KEYDOWN and event.key == K_ESCAPE:
-                return
-            elif event.type == QUIT:
-                return
-
-        current_time = pygame.time.get_ticks()
-        if current_time - move_down_timer > move_down_interval:
-            has_moved_down = active_piece.move_down(screen)
-            if not has_moved_down:
-                # Spawn new piece
-                active_blocks.update(screen, update_grid=True)
-                inactive_blocks.add(*active_piece.blocks)
-                active_blocks.remove(*active_piece.blocks)
-                active_piece = Tetris(screen, "O")  # TODO: random
-                active_blocks.add(*active_piece.blocks)
-
-            active_blocks.update(screen)
-            surf.fill((0, 80, 102))
-            for group in borders, active_blocks, inactive_blocks:
-                group.draw(surf)
-            pygame.display.flip()
-
-            # Update time tracking
-            move_down_timer = current_time
+        if state == "RUNNING":
+            state, active_blocks, inactive_blocks, screen, active_piece = run_game_loop(
+                active_blocks, inactive_blocks, screen, surf, active_piece, move_down_interval,
+                move_down_timer, borders)
+        else:
+            return
 
         clock.tick(tickrate)
 
