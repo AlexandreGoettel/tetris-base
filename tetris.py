@@ -1,6 +1,6 @@
 import random
 import pygame
-from pygame.locals import KEYDOWN, K_ESCAPE, QUIT
+from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_s, K_d
 
 
 class Bit10:
@@ -62,16 +62,30 @@ class Block(pygame.sprite.Sprite):
         #     screen.checksum[self.j][self.i - 1] = 0
         # screen.checksum[self.j][self.i] = 1
 
-    def check_move_down(self, screen):
+    def check_move(self, screen, direction):
         """Check if increasing j by 1 is possible."""
-        if (not self.j + 1 == len(screen.checksum))\
-                and (not screen.checksum[self.j + 1][self.i]):
-            return True
+        if direction == "down":
+            if (not self.j + 1 == len(screen.checksum))\
+                    and (not screen.checksum[self.j + 1][self.i]):
+                return True
+        elif direction == "left":
+            if (not self.i - 1 == -1)\
+                    and (not screen.checksum[self.j][self.i - 1]):
+                return True
+        elif direction == "right":
+            if (not self.i + 1 == len(screen.checksum[0]))\
+                    and (not screen.checksum[self.j][self.i + 1]):
+                return True
         return False
 
-    def move_down(self):
+    def move(self, direction):
         """Move the block coord down by 1."""
-        self.j += 1
+        if direction == "down":
+            self.j += 1
+        elif direction == "left":
+            self.i -= 1
+        elif direction == "right":
+            self.i += 1
 
 
 class Tetris:
@@ -104,16 +118,15 @@ class Tetris:
         if self.block_type == "O":
             return
 
-    def move_down(self, screen):
+    def move(self, screen, direction):
         for block in self.blocks:
-            if not block.check_move_down(screen):
+            if not block.check_move(screen, direction):
                 break
         else:
             for block in self.blocks:
-                block.move_down()
+                block.move(direction)
             return True
         return False
-
 
 class Screen:
     """Hold methods and information related to screen placement and drawing."""
@@ -154,15 +167,28 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
     """Run one game loop logic."""
     state = "RUNNING"
     for event in pygame.event.get():
-        if event.type == KEYDOWN and event.key == K_ESCAPE:
+        if event.type == QUIT:
             state = "SCORESCREEN"
-        elif event.type == QUIT:
+            continue
+
+        elif event.type != KEYDOWN:
+            continue
+
+        if event.key == K_ESCAPE:
             state = "SCORESCREEN"
+            continue
+
+        elif event.key == K_w:
+            active_piece.rotate("left")
+        elif event.key == K_a:
+            active_piece.move(screen, "left")
+        elif event.key == K_d:
+            active_piece.move(screen, "right")
 
     if state == "RUNNING":
         current_time = pygame.time.get_ticks()
         if current_time - move_down_timer > move_down_interval:
-            has_moved_down = active_piece.move_down(screen)
+            has_moved_down = active_piece.move(screen, "down")
             if not has_moved_down:
                 # Spawn new piece
                 active_blocks.update(screen, update_grid=True)
@@ -180,13 +206,13 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
             # Update time tracking
             move_down_timer = current_time
 
-    return state, active_blocks, inactive_blocks, screen, active_piece
+    return state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer
 
 
 def main(tickrate=30):
     # Define game variables
     clock = pygame.time.Clock()
-    move_down_timer, move_down_interval = 0, 100
+    move_down_timer, move_down_interval = 0, 1000
 
     # Process
     screen = Screen(400, epsilon=0.05, left_space=3, right_space=3)
@@ -209,10 +235,12 @@ def main(tickrate=30):
     # Game loop
     while True:
         if state == "RUNNING":
-            state, active_blocks, inactive_blocks, screen, active_piece = run_game_loop(
-                active_blocks, inactive_blocks, screen, surf, active_piece, move_down_interval,
-                move_down_timer, borders)
+            state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer =\
+                run_game_loop(
+                    active_blocks, inactive_blocks, screen, surf, active_piece,
+                    move_down_interval, move_down_timer, borders)
         else:
+            # TODO: Score screen
             return
 
         clock.tick(tickrate)
