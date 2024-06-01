@@ -108,7 +108,7 @@ class Tetris:
 
     def assemble(self, screen):
         assert self.block_type == "O"  # TODO
-        x, y = [0, 1, 0, 1], [0, 0, 1, 1]
+        x, y = [4, 5, 4, 5], [0, 0, 1, 1]
         blocks = []
         for xi, yi in zip(x, y):
             blocks.append(Block(screen, colour=self.colour, i=xi, j=yi))
@@ -197,14 +197,14 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
                 active_piece = Tetris(screen, "O")  # TODO: random
                 active_blocks.add(*active_piece.blocks)
 
-            active_blocks.update(screen)
-            surf.fill((0, 80, 102))
-            for group in borders, active_blocks, inactive_blocks:
-                group.draw(surf)
-            pygame.display.flip()
-
             # Update time tracking
             move_down_timer = current_time
+
+        active_blocks.update(screen)
+        surf.fill((0, 80, 102))
+        for group in borders, active_blocks, inactive_blocks:
+            group.draw(surf)
+        pygame.display.flip()
 
     return state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer
 
@@ -212,7 +212,7 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
 def main(tickrate=30):
     # Define game variables
     clock = pygame.time.Clock()
-    move_down_timer, move_down_interval = 0, 1000
+    move_down_timer, move_down_interval = 0, 100
 
     # Process
     screen = Screen(400, epsilon=0.05, left_space=3, right_space=3)
