@@ -58,7 +58,7 @@ class Block(pygame.sprite.Sprite):
             screen.checksum[self.j][self.i] = 1
 
     def check_move(self, screen, direction):
-        """Check if increasing j by 1 is possible."""
+        """Check if movement by 1 is possible."""
         if direction == "down":
             if self.j < -1:
                 return True
@@ -112,6 +112,7 @@ class Tetris:
         self.block_type = block_type
         self.colour = colour_table[block_type]
         self.blocks = self.assemble(screen, *coord_table[block_type])
+        self.orientation = "N"
 
     def assemble(self, screen, x, y):
         """Transform assortment of coords to a tetromino made of blocks."""
@@ -120,10 +121,29 @@ class Tetris:
             blocks.append(Block(screen, colour=self.colour, i=xi, j=yi))
         return blocks
 
-    def rotate(self, direction):
-        """Implement gamebox-system rotation."""
+    def rotate(self, screen, direction):
+        """Implement gameboy-style rotation system."""
+        # TODO: implement wall-kicks
         if self.block_type == "O":
             return
+        if self.block_type == "I":
+            orientation_table = {"N": "W", "W": "N"}
+            # For each NEW block, check if there is room
+            dx, dy = ((2, 1, 0, -1), (2, 1, 0, -1))
+            sign = 1 if self.orientation == "N" else -1
+            for block, dxi, dyi in zip(self.blocks, dx, dy):
+                i, j = block.i + sign*dxi, block.j + sign*dyi
+                if j >= len(screen.checksum) or i < 0 or i >= len(screen.checksum[0]):
+                    break
+                if screen.checksum[j][i]:
+                    break
+            else:
+                # If all yes, rotate
+                self.orientation = orientation_table[self.orientation]
+                for block, dxi, dyi in zip(self.blocks, dx, dy):
+                    block.i += sign*dxi
+                    block.j += sign*dyi
+                return
 
     def move(self, screen, direction):
         """Move either "down", "left", or "right"."""
@@ -188,7 +208,7 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
             continue
 
         elif event.key == K_w:
-            active_piece.rotate("left")
+            active_piece.rotate(screen, "w")
         elif event.key == K_a:
             active_piece.move(screen, "left")
         elif event.key == K_d:
