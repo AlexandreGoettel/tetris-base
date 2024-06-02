@@ -123,27 +123,69 @@ class Tetris:
 
     def rotate(self, screen, direction):
         """Implement gameboy-style rotation system."""
-        # TODO: implement wall-kicks
+        # TODO: implement wall-kicks and counter-clockwise rotation
+        orientation_table = {"N": "W", "W": "N"} if self.block_type in ["I", "S", "Z"]\
+            else {"N": "E", "E": "S", "S": "W", "W": "N"}
+        sign = 1
+
         if self.block_type == "O":
             return
-        if self.block_type == "I":
-            orientation_table = {"N": "W", "W": "N"}
+
+        elif self.block_type == "I":
             # For each NEW block, check if there is room
             dx, dy = ((2, 1, 0, -1), (2, 1, 0, -1))
             sign = 1 if self.orientation == "N" else -1
+
+        elif self.block_type == "L" and direction == "w":
+            dx, dy = {
+                "N": ((-2, -1, 0, 1), (0, -1, 0, 1)),
+                "E": ((0, 1, 0, -1), (-2, -1, 0, 1)),
+                "S": ((2, 1, 0, -1), (0, 1, 0, -1)),  # -N
+                "W": ((0, -1, 0, 1), (2, 1, 0, -1))  # -E
+            }[self.orientation]
+
+        elif self.block_type == "J" and direction == "w":
+            dx, dy = {
+                "N": ((0, -1, 0, 1), (-2, -1, 0, 1)),
+                "E": ((2, 1, 0, -1), (0, -1, 0, 1)),
+                "S": ((0, 1, 0, -1), (2, 1, 0, -1)),
+                "W": ((-2, -1, 0, 1), (0, 1, 0, -1))
+            }[self.orientation]
+
+        elif self.block_type == "S" and direction == "w":
+            dx, dy = (0, -1, 0, -1), (-2, -1, 0, 1)
+            sign = 1 if self.orientation == "N" else -1
+
+        elif self.block_type == "Z" and direction == "w":
+            dx, dy = (1, 0, -1, -2), (-1, 0, -1, 0)
+            sign = 1 if self.orientation == "N" else -1
+
+        elif self.block_type == "T":
+            dx, dy = {
+                "N": ((1, 0, 0, 0), (1, 0, 0, 0)),
+                "E": ((0, 0, 0, -1), (0, 0, 0, 1)),
+                "S": ((0, 0, -1, 0), (0, 0, -1, 0)),
+                "W": ((-1, 0, 1, 1), (-1, 0, 1, -1))
+            }[self.orientation]
+
+        else:  # Temporary catch-all
+            return
+
+        # Check if a rotation is possible and if yes, do it
+        for block, dxi, dyi in zip(self.blocks, dx, dy):
+            i, j = block.i + sign*dxi, block.j + sign*dyi
+            if j >= len(screen.checksum) or i < 0 or i >= len(screen.checksum[0]):
+                break
+            if screen.checksum[j][i]:
+                break
+        else:
+            # If all yes, rotate
+            self.orientation = orientation_table[self.orientation]
             for block, dxi, dyi in zip(self.blocks, dx, dy):
-                i, j = block.i + sign*dxi, block.j + sign*dyi
-                if j >= len(screen.checksum) or i < 0 or i >= len(screen.checksum[0]):
-                    break
-                if screen.checksum[j][i]:
-                    break
-            else:
-                # If all yes, rotate
-                self.orientation = orientation_table[self.orientation]
-                for block, dxi, dyi in zip(self.blocks, dx, dy):
-                    block.i += sign*dxi
-                    block.j += sign*dyi
-                return
+                block.i += sign*dxi
+                block.j += sign*dyi
+            return
+
 
     def move(self, screen, direction):
         """Move either "down", "left", or "right"."""
