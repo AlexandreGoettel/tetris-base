@@ -100,15 +100,16 @@ class Tetris:
         }
         coord_table = {
             "O": ((4, 5, 4, 5), (0, 0, 1, 1)),
-            "I": ((4, 4, 4, 4), (-3, -2, -1, 0)),
-            "S": ((4, 5, 5, 6), (0, 0, -1, -1)),
-            "Z": ((4, 5, 5, 6), (-1, -1, 0, 0)),
-            "J": ((4, 5, 5, 5), (0, 0, -1, -2)),
-            "T": ((4, 5, 6, 5), (0, 0, 0, -1)),
-            "L": ((5, 4, 4, 4), (0, 0, -1, -2)),
+            "I": ((3, 4, 5, 6), (0, 0, 0, 0)),
+            "S": ((3, 4, 4, 5), (0, 0, -1, -1)),
+            "Z": ((3, 4, 4, 5), (-1, -1, 0, 0)),
+            "J": ((3, 3, 4, 5), (-1, 0, 0, 0)),
+            "T": ((3, 4, 5, 4), (0, 0, 0, -1)),
+            "L": ((5, 5, 4, 3), (-1, 0, 0, 0)),
         }
-        block_type = random.choice(list(colour_table.keys()))\
-            if block_type == "random" else block_type
+        # block_type = random.choice(list(colour_table.keys()))\
+        #     if block_type == "random" else block_type
+        block_type = random.choice(["J", "L"])
         self.block_type = block_type
         self.colour = colour_table[block_type]
         self.blocks = self.assemble(screen, *coord_table[block_type])
@@ -138,18 +139,18 @@ class Tetris:
 
         elif self.block_type == "L" and direction == "w":
             dx, dy = {
-                "N": ((-2, -1, 0, 1), (0, -1, 0, 1)),
-                "E": ((0, 1, 0, -1), (-2, -1, 0, 1)),
-                "S": ((2, 1, 0, -1), (0, 1, 0, -1)),  # -N
-                "W": ((0, -1, 0, 1), (2, 1, 0, -1))  # -E
+                "E": ((-2, -1, 0, 1), (0, -1, 0, 1)),
+                "S": ((0, 1, 0, -1), (-2, -1, 0, 1)),
+                "W": ((2, 1, 0, -1), (0, 1, 0, -1)),
+                "N": ((0, -1, 0, 1), (2, 1, 0, -1))
             }[self.orientation]
 
         elif self.block_type == "J" and direction == "w":
             dx, dy = {
-                "N": ((0, -1, 0, 1), (-2, -1, 0, 1)),
-                "E": ((2, 1, 0, -1), (0, -1, 0, 1)),
-                "S": ((0, 1, 0, -1), (2, 1, 0, -1)),
-                "W": ((-2, -1, 0, 1), (0, 1, 0, -1))
+                "W": ((0, -1, 0, 1), (-2, -1, 0, 1)),
+                "N": ((2, 1, 0, -1), (0, -1, 0, 1)),
+                "E": ((0, 1, 0, -1), (2, 1, 0, -1)),
+                "S": ((-2, -1, 0, 1), (0, 1, 0, -1))
             }[self.orientation]
 
         elif self.block_type == "S" and direction == "w":
