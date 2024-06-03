@@ -107,6 +107,50 @@ class Tetris:
             "T": ((3, 4, 5, 4), (0, 0, 0, -1)),
             "L": ((5, 5, 4, 3), (-1, 0, 0, 0)),
         }
+        self.clockwise_rotation_table = {
+            "I":
+            {
+                "N": ((2, 1, 0, -1), (-1, 0, 1, 2)),
+                "E": ((1, 0, -1, -2), (2, 1, 0, -1)),
+                "S": ((-2, -1, 0, 1), (1, 0, -1, -2)),
+                "W": ((-1, 0, 1, 2), (-2, -1, 0, 1))
+            },
+            "L":
+            {
+                "E": ((-2, -1, 0, 1), (0, -1, 0, 1)),
+                "S": ((0, 1, 0, -1), (-2, -1, 0, 1)),
+                "W": ((2, 1, 0, -1), (0, 1, 0, -1)),
+                "N": ((0, -1, 0, 1), (2, 1, 0, -1))
+            },
+            "J":
+            {
+                "W": ((0, -1, 0, 1), (-2, -1, 0, 1)),
+                "N": ((2, 1, 0, -1), (0, -1, 0, 1)),
+                "E": ((0, 1, 0, -1), (2, 1, 0, -1)),
+                "S": ((-2, -1, 0, 1), (0, 1, 0, -1))
+            },
+            "S":
+            {
+                "N": ((1, 0, 1, 0), (-1, 0, 1, 2)),
+                "E": ((1, 0, -1, -2), (1, 0, 1, 0)),
+                "S": ((-1, 0, -1, 0), (1, 0, -1, -2)),
+                "W": ((-1, 0, 1, 2), (-1, 0, -1, 0))
+            },
+            "Z":
+            {
+                "N": ((2, 1, 0, -1), (0, 1, 0, 1)),
+                "E": ((0, -1, 0, -1), (2, 1, 0, -1)),
+                "S": ((-2, -1, 0, 1), (0, -1, 0, -1)),
+                "W": ((0, 1, 0, 1), (-2, -1, 0, 1))
+            },
+            "T":
+            {
+                "N": ((1, 0, 0, 0), (1, 0, 0, 0)),
+                "E": ((0, 0, 0, -1), (0, 0, 0, 1)),
+                "S": ((0, 0, -1, 0), (0, 0, -1, 0)),
+                "W": ((-1, 0, 1, 1), (-1, 0, 1, -1))
+            }
+        }
         self.kick_table = {
             "I": {
                 "N-E": ((0, 0), (-2, 0), (1, 0), (-2, 1), (1, -2)),  # 0->R
@@ -137,65 +181,14 @@ class Tetris:
 
     def rotate(self, screen, direction):
         """Implement gameboy-style rotation system."""
-        # TODO: implement wall-kicks and counter-clockwise rotation
+        # TODO: implement counter-clockwise rotation
         orientation_table = {"N": "E", "E": "S", "S": "W", "W": "N"}
 
-        if self.block_type == "O":
-            return
-
-        # This could all be made easier by using a big table?
-        elif self.block_type == "I" and direction == "w":
-            dx, dy = {
-                "N": ((2, 1, 0, -1), (-1, 0, 1, 2)),
-                "E": ((1, 0, -1, -2), (2, 1, 0, -1)),
-                "S": ((-2, -1, 0, 1), (1, 0, -1, -2)),
-                "W": ((-1, 0, 1, 2), (-2, -1, 0, 1))
-            }[self.orientation]
-
-        elif self.block_type == "L" and direction == "w":
-            dx, dy = {
-                "E": ((-2, -1, 0, 1), (0, -1, 0, 1)),
-                "S": ((0, 1, 0, -1), (-2, -1, 0, 1)),
-                "W": ((2, 1, 0, -1), (0, 1, 0, -1)),
-                "N": ((0, -1, 0, 1), (2, 1, 0, -1))
-            }[self.orientation]
-
-        elif self.block_type == "J" and direction == "w":
-            dx, dy = {
-                "W": ((0, -1, 0, 1), (-2, -1, 0, 1)),
-                "N": ((2, 1, 0, -1), (0, -1, 0, 1)),
-                "E": ((0, 1, 0, -1), (2, 1, 0, -1)),
-                "S": ((-2, -1, 0, 1), (0, 1, 0, -1))
-            }[self.orientation]
-
-        elif self.block_type == "S" and direction == "w":
-            dx, dy = {
-                "N": ((1, 0, 1, 0), (-1, 0, 1, 2)),
-                "E": ((1, 0, -1, -2), (1, 0, 1, 0)),
-                "S": ((-1, 0, -1, 0), (1, 0, -1, -2)),
-                "W": ((-1, 0, 1, 2), (-1, 0, -1, 0))
-            }[self.orientation]
-
-        elif self.block_type == "Z" and direction == "w":
-            dx, dy = {
-                "N": ((2, 1, 0, -1), (0, 1, 0, 1)),
-                "E": ((0, -1, 0, -1), (2, 1, 0, -1)),
-                "S": ((-2, -1, 0, 1), (0, -1, 0, -1)),
-                "W": ((0, 1, 0, 1), (-2, -1, 0, 1))
-            }[self.orientation]
-
-        elif self.block_type == "T":
-            dx, dy = {
-                "N": ((1, 0, 0, 0), (1, 0, 0, 0)),
-                "E": ((0, 0, 0, -1), (0, 0, 0, 1)),
-                "S": ((0, 0, -1, 0), (0, 0, -1, 0)),
-                "W": ((-1, 0, 1, 1), (-1, 0, 1, -1))
-            }[self.orientation]
-
-        else:  # Temporary catch-all
+        if self.block_type == "O" or direction != "w":
             return
 
         # Check if a rotation is possible and if yes, do it
+        dx, dy = self.clockwise_rotation_table[self.block_type][self.orientation]
         kick_type = "I" if self.block_type == "I" else "else"
         kick_key = f"{self.orientation}-{orientation_table[self.orientation]}"
         for kickx, kicky in self.kick_table[kick_type][kick_key]:
