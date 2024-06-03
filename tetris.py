@@ -107,6 +107,20 @@ class Tetris:
             "T": ((3, 4, 5, 4), (0, 0, 0, -1)),
             "L": ((5, 5, 4, 3), (-1, 0, 0, 0)),
         }
+        self.kick_table = {
+            "I": {
+                "N-E": ((0, 0), (-2, 0), (1, 0), (-2, 1), (1, -2)),  # 0->R
+                "E-S": ((0, 0), (-1, 0), (2, 0), (-1, -2), (2, 1)),  # R->2
+                "S-W": ((0, 0), (2, 0), (-1, 0), (2, -1), (-1, 2)),  # 2->L
+                "W-N": ((0, 0), (1, 0), (-2, 0), (1, 2), (-2, 1))  # L->0
+            },
+            "else": {
+                "N-E": ((0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)),  # 0->R
+                "E-S": ((0, 0), (1, 0), (1, 1), (0, -2), (1, -2)),  # R->2
+                "S-W": ((0, 0), (1, 0), (1, 1), (0, 2), (1, 2)),  # 2->L
+                "W-N": ((0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2))  # L->0
+            }
+        }
         block_type = random.choice(list(colour_table.keys()))\
             if block_type == "random" else block_type
         self.block_type = block_type
@@ -124,17 +138,19 @@ class Tetris:
     def rotate(self, screen, direction):
         """Implement gameboy-style rotation system."""
         # TODO: implement wall-kicks and counter-clockwise rotation
-        orientation_table = {"N": "W", "W": "N"} if self.block_type in ["I", "S", "Z"]\
-            else {"N": "E", "E": "S", "S": "W", "W": "N"}
-        sign = 1
+        orientation_table = {"N": "E", "E": "S", "S": "W", "W": "N"}
 
         if self.block_type == "O":
             return
 
-        elif self.block_type == "I":
-            # For each NEW block, check if there is room
-            dx, dy = ((2, 1, 0, -1), (2, 1, 0, -1))
-            sign = 1 if self.orientation == "N" else -1
+        # This could all be made easier by using a big table?
+        elif self.block_type == "I" and direction == "w":
+            dx, dy = {
+                "N": ((2, 1, 0, -1), (-1, 0, 1, 2)),
+                "E": ((1, 0, -1, -2), (2, 1, 0, -1)),
+                "S": ((-2, -1, 0, 1), (1, 0, -1, -2)),
+                "W": ((-1, 0, 1, 2), (-2, -1, 0, 1))
+            }[self.orientation]
 
         elif self.block_type == "L" and direction == "w":
             dx, dy = {
@@ -153,12 +169,20 @@ class Tetris:
             }[self.orientation]
 
         elif self.block_type == "S" and direction == "w":
-            dx, dy = (0, -1, 0, -1), (-2, -1, 0, 1)
-            sign = 1 if self.orientation == "N" else -1
+            dx, dy = {
+                "N": ((1, 0, 1, 0), (-1, 0, 1, 2)),
+                "E": ((1, 0, -1, -2), (1, 0, 1, 0)),
+                "S": ((-1, 0, -1, 0), (1, 0, -1, -2)),
+                "W": ((-1, 0, 1, 2), (-1, 0, -1, 0))
+            }[self.orientation]
 
         elif self.block_type == "Z" and direction == "w":
-            dx, dy = (1, 0, -1, -2), (-1, 0, -1, 0)
-            sign = 1 if self.orientation == "N" else -1
+            dx, dy = {
+                "N": ((2, 1, 0, -1), (0, 1, 0, 1)),
+                "E": ((0, -1, 0, -1), (2, 1, 0, -1)),
+                "S": ((-2, -1, 0, 1), (0, -1, 0, -1)),
+                "W": ((0, 1, 0, 1), (-2, -1, 0, 1))
+            }[self.orientation]
 
         elif self.block_type == "T":
             dx, dy = {
@@ -172,20 +196,22 @@ class Tetris:
             return
 
         # Check if a rotation is possible and if yes, do it
-        for block, dxi, dyi in zip(self.blocks, dx, dy):
-            i, j = block.i + sign*dxi, block.j + sign*dyi
-            if j >= len(screen.checksum) or i < 0 or i >= len(screen.checksum[0]):
-                break
-            if screen.checksum[j][i]:
-                break
-        else:
-            # If all yes, rotate
-            self.orientation = orientation_table[self.orientation]
+        kick_type = "I" if self.block_type == "I" else "else"
+        kick_key = f"{self.orientation}-{orientation_table[self.orientation]}"
+        for kickx, kicky in self.kick_table[kick_type][kick_key]:
             for block, dxi, dyi in zip(self.blocks, dx, dy):
-                block.i += sign*dxi
-                block.j += sign*dyi
-            return
-
+                i, j = block.i + dxi + kickx, block.j + dyi + kicky
+                if j >= len(screen.checksum) or i < 0 or i >= len(screen.checksum[0]):
+                    break
+                if screen.checksum[j][i]:
+                    break
+            else:
+                # If all yes, rotate
+                self.orientation = orientation_table[self.orientation]
+                for block, dxi, dyi in zip(self.blocks, dx, dy):
+                    block.i += dxi + kickx
+                    block.j += dyi + kicky
+                return
 
     def move(self, screen, direction):
         """Move either "down", "left", or "right"."""
@@ -316,7 +342,7 @@ def main(tickrate=30):
     # Process
     screen = Screen(400, epsilon=0.05, left_space=3, right_space=3)
     borders, surf = screen.setup_screen()
-    surf.fill((0, 80, 102))
+    surf.fill((0, 0, 0))
     borders.update(screen)
     borders.draw(surf)
 
