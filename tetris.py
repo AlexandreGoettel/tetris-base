@@ -107,9 +107,8 @@ class Tetris:
             "T": ((3, 4, 5, 4), (0, 0, 0, -1)),
             "L": ((5, 5, 4, 3), (-1, 0, 0, 0)),
         }
-        # block_type = random.choice(list(colour_table.keys()))\
-        #     if block_type == "random" else block_type
-        block_type = random.choice(["J", "L"])
+        block_type = random.choice(list(colour_table.keys()))\
+            if block_type == "random" else block_type
         self.block_type = block_type
         self.colour = colour_table[block_type]
         self.blocks = self.assemble(screen, *coord_table[block_type])
