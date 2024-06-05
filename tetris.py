@@ -1,6 +1,6 @@
 import random
 import pygame
-from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_SPACE, K_d
+from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_SPACE, K_d, K_s
 
 
 class Bit10:
@@ -88,7 +88,7 @@ class Block(pygame.sprite.Sprite):
 class Tetris:
     """Hold four blocks in given Tetris shape."""
 
-    def __init__(self, screen, block_type):
+    def __init__(self, screen, block_type, previous=None):
         colour_table = {
             "O": (255, 255, 0),
             "I": (0, 255, 255),
@@ -165,8 +165,13 @@ class Tetris:
                 "W-N": ((0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2))  # L->0
             }
         }
-        block_type = random.choice(list(colour_table.keys()))\
-            if block_type == "random" else block_type
+        # Random with bias against getting same twice in a row
+        if block_type == "random":
+            block_type = random.choice(list(colour_table.keys()) + ["random"])
+            if block_type == "random" or\
+                    (previous is not None and previous.block_type == block_type):
+                block_type = random.choice(list(colour_table.keys()))
+
         self.block_type = block_type
         self.colour = colour_table[block_type]
         self.blocks = self.assemble(screen, *coord_table[block_type])
@@ -254,10 +259,11 @@ class Screen:
 
 class Timer:
 
-    def __init__(self, interval, delta):
+    def __init__(self, interval=100, delta=150, soft_delay=100):
         """Set time between block updates and action delta."""
         self.move_down_interval = interval
         self.action_delta = delta
+        self.soft_delay = soft_delay
         self.move_down_timer = 0
         self.last_action_time = 0
 
@@ -269,6 +275,7 @@ class Timer:
         self.last_action_time = current_time
 
     def update(self):
+        """Update main timer."""
         self.move_down_timer = pygame.time.get_ticks()
 
     @property
@@ -277,10 +284,17 @@ class Timer:
         current_time = pygame.time.get_ticks()
         return current_time - self.move_down_timer > self.move_down_interval
 
+    @property
+    def can_soft_move(self):
+        """Alternative timer rule for soft movement."""
+        current_time = pygame.time.get_ticks()
+        return current_time > self.last_action_time + self.soft_delay
+
 
 def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, timer, borders):
     """Run one game loop logic."""
     state = "RUNNING"
+    # Check for key presses
     for event in pygame.event.get():
         if event.type == QUIT:
             state = "SCORESCREEN"
@@ -292,12 +306,9 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, ti
             state = "SCORESCREEN"
             continue
 
-        # Hard drop
         elif event.key == K_SPACE:
             while active_piece.move(screen, "down"):
                 pass
-
-        # Rotation
         elif event.key == K_w:
             active_piece.rotate(screen, "w")
         elif event.key == K_a:
@@ -308,6 +319,24 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, ti
         if event.key in [K_w, K_a, K_d]:
             timer.delta()
 
+    # Check for continuous movement
+    keys = pygame.key.get_pressed()
+    if (keys[K_a] and keys[K_d]) or not timer.can_soft_move:
+        pass
+
+    elif keys[K_a]:
+        if active_piece.move(screen, "left"):
+            timer.delta()
+
+    elif keys[K_d]:
+        if active_piece.move(screen, "right"):
+            timer.delta()
+
+    elif keys[K_s]:
+        if active_piece.move(screen, "down"):
+            timer.delta()
+
+    # Natural move down
     if state == "RUNNING":
         if timer.can_move_down:
             has_moved_down = active_piece.move(screen, "down")
@@ -344,7 +373,7 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, ti
                         block.update(screen, update_grid=True)
 
                 # Spawn new piece
-                active_piece = Tetris(screen, "random")
+                active_piece = Tetris(screen, "random", previous=active_piece)
                 active_blocks.add(*active_piece.blocks)
 
             # Update time tracking
