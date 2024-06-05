@@ -252,11 +252,35 @@ class Screen:
         return x_coord, y_coord
 
 
-def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
-                  move_down_interval, move_down_timer, last_action_time, borders):
+class Timer:
+
+    def __init__(self, interval, delta):
+        """Set time between block updates and action delta."""
+        self.move_down_interval = interval
+        self.action_delta = delta
+        self.move_down_timer = 0
+        self.last_action_time = 0
+
+    def delta(self):
+        """Adjust timer to allow for action delay - spam proof."""
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_action_time >= self.action_delta:
+            self.move_down_timer += self.action_delta
+        self.last_action_time = current_time
+
+    def update(self):
+        self.move_down_timer = pygame.time.get_ticks()
+
+    @property
+    def can_move_down(self):
+        """Check if time has elapsed move down interval"""
+        current_time = pygame.time.get_ticks()
+        return current_time - self.move_down_timer > self.move_down_interval
+
+
+def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, timer, borders):
     """Run one game loop logic."""
     state = "RUNNING"
-    current_time = pygame.time.get_ticks()
     for event in pygame.event.get():
         if event.type == QUIT:
             state = "SCORESCREEN"
@@ -282,13 +306,10 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
             active_piece.move(screen, "right")
 
         if event.key in [K_w, K_a, K_d]:
-            if current_time - last_action_time >= 150:
-                move_down_timer += 150
-            last_action_time = current_time
+            timer.delta()
 
     if state == "RUNNING":
-        # current_time = pygame.time.get_ticks()
-        if current_time - move_down_timer > move_down_interval:
+        if timer.can_move_down:
             has_moved_down = active_piece.move(screen, "down")
             if not has_moved_down:
                 # Update board
@@ -327,7 +348,7 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
                 active_blocks.add(*active_piece.blocks)
 
             # Update time tracking
-            move_down_timer = current_time
+            timer.update()
 
         active_blocks.update(screen)
         surf.fill((0, 0, 0))
@@ -335,13 +356,13 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
             group.draw(surf)
         pygame.display.flip()
 
-    return state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer, last_action_time
+    return state, active_blocks, inactive_blocks, screen, active_piece, timer
 
 
 def main(tickrate=30):
     # Define game variables
     clock = pygame.time.Clock()
-    move_down_timer, move_down_interval, last_action_time = 0, 100, 0
+    timer = Timer(100, 150)
 
     # Process
     screen = Screen(400, epsilon=0.05, left_space=3, right_space=3)
@@ -364,10 +385,9 @@ def main(tickrate=30):
     # Game loop
     while True:
         if state == "RUNNING":
-            state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer, last_action_time =\
+            state, active_blocks, inactive_blocks, screen, active_piece, timer =\
                 run_game_loop(
-                    active_blocks, inactive_blocks, screen, surf, active_piece,
-                    move_down_interval, move_down_timer, last_action_time, borders)
+                    active_blocks, inactive_blocks, screen, surf, active_piece, timer, borders)
         else:
             # TODO: Score screen
             return
