@@ -1,6 +1,6 @@
 import random
 import pygame
-from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_s, K_d
+from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_SPACE, K_d
 
 
 class Bit10:
@@ -268,6 +268,10 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
             state = "SCORESCREEN"
             continue
 
+        if event.key == K_SPACE:
+            while active_piece.move(screen, "down"):
+                pass
+
         elif event.key == K_w:
             active_piece.rotate(screen, "w")
         elif event.key == K_a:
@@ -319,7 +323,7 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
             move_down_timer = current_time
 
         active_blocks.update(screen)
-        surf.fill((0, 80, 102))
+        surf.fill((0, 0, 0))
         for group in borders, active_blocks, inactive_blocks:
             group.draw(surf)
         pygame.display.flip()
