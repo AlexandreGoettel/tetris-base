@@ -252,10 +252,11 @@ class Screen:
         return x_coord, y_coord
 
 
-def run_game_loop(active_blocks, inactive_blocks, screen, surf,
-                  active_piece, move_down_interval, move_down_timer, borders):
+def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
+                  move_down_interval, move_down_timer, last_action_time, borders):
     """Run one game loop logic."""
     state = "RUNNING"
+    current_time = pygame.time.get_ticks()
     for event in pygame.event.get():
         if event.type == QUIT:
             state = "SCORESCREEN"
@@ -263,15 +264,16 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
 
         elif event.type != KEYDOWN:
             continue
-
         if event.key == K_ESCAPE:
             state = "SCORESCREEN"
             continue
 
-        if event.key == K_SPACE:
+        # Hard drop
+        elif event.key == K_SPACE:
             while active_piece.move(screen, "down"):
                 pass
 
+        # Rotation
         elif event.key == K_w:
             active_piece.rotate(screen, "w")
         elif event.key == K_a:
@@ -279,8 +281,13 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
         elif event.key == K_d:
             active_piece.move(screen, "right")
 
+        if event.key in [K_w, K_a, K_d]:
+            if current_time - last_action_time >= 150:
+                move_down_timer += 150
+            last_action_time = current_time
+
     if state == "RUNNING":
-        current_time = pygame.time.get_ticks()
+        # current_time = pygame.time.get_ticks()
         if current_time - move_down_timer > move_down_interval:
             has_moved_down = active_piece.move(screen, "down")
             if not has_moved_down:
@@ -328,13 +335,13 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf,
             group.draw(surf)
         pygame.display.flip()
 
-    return state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer
+    return state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer, last_action_time
 
 
 def main(tickrate=30):
     # Define game variables
     clock = pygame.time.Clock()
-    move_down_timer, move_down_interval = 0, 100
+    move_down_timer, move_down_interval, last_action_time = 0, 100, 0
 
     # Process
     screen = Screen(400, epsilon=0.05, left_space=3, right_space=3)
@@ -357,10 +364,10 @@ def main(tickrate=30):
     # Game loop
     while True:
         if state == "RUNNING":
-            state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer =\
+            state, active_blocks, inactive_blocks, screen, active_piece, move_down_timer, last_action_time =\
                 run_game_loop(
                     active_blocks, inactive_blocks, screen, surf, active_piece,
-                    move_down_interval, move_down_timer, borders)
+                    move_down_interval, move_down_timer, last_action_time, borders)
         else:
             # TODO: Score screen
             return
