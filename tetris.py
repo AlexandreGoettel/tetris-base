@@ -226,12 +226,14 @@ class Tetris:
 class Screen:
     """Hold methods and information related to screen placement and drawing."""
 
-    def __init__(self, scale, epsilon=0.05, left_space=3, right_space=3):
+    def __init__(self, scale, epsilon=0.05, left_space=3, right_space=3, font=None, ft=32):
         self.scale = scale
         self.epsilon = epsilon
         self.left = left_space
         self.right = right_space
         self.checksum = [Bit10() for _ in range(20)]
+        self.score = 0
+        self.font = pygame.font.SysFont(font, ft)
 
     def setup_screen(self):
         """Create tetris-ready screen based on scaling factor."""
@@ -248,6 +250,25 @@ class Screen:
         for j in range(20):
             for delta in [-1, 10]:
                 borders.add(Block(self, i=delta, j=j))
+
+        # Add score box
+        delta = 0.1
+        box_under = pygame.sprite.Sprite()
+        box_under.image = pygame.Surface([block*(self.right - 2*delta), block*2*(1 - delta)])
+        box_under.image.fill((0, 120, 80))
+        box_under.rect = box_under.image.get_rect()
+        box_under.rect.x, box_under.rect.y = block*(self.left + 12 + delta), block*(3 + delta)
+        borders.add(box_under)
+
+        # Could be replaced by font bkg?
+        box_over = pygame.sprite.Sprite()
+        box_over.image = pygame.Surface([block*(self.right - 4*delta), block*(2 - 4*delta)])
+        box_over.image.fill((255, 255, 255))
+        box_over.rect = box_over.image.get_rect()
+        box_over.rect.x, box_over.rect.y = block*(self.left + 12 + 2*delta), block*(3 + 2*delta)
+        borders.add(box_over)
+
+        self.draw_score(screen, delta=delta)
         return borders, screen
 
     def get_coords(self, i, j):
@@ -255,6 +276,15 @@ class Screen:
         x_coord = self.scale / 10 * (i + self.left + 1 + self.epsilon / 2)
         y_coord = self.scale / 10 * (j + self.epsilon / 2)
         return x_coord, y_coord
+
+    def set_score(self, score):
+        """Setter for score value."""
+        self.score = score
+
+    def draw_score(self, screen, delta=0.1):
+        """Draw score as text."""
+        score_text = self.font.render(str(self.score), True, (0, 0, 0))
+        screen.blit(score_text, (self.scale/10*(self.left + 12 + 2*delta), self.scale/10*(3 + 2*delta)))
 
 
 class Timer:
@@ -291,7 +321,8 @@ class Timer:
         return current_time > self.last_action_time + self.soft_delay
 
 
-def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, timer, borders):
+def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
+                  timer, borders, score):
     """Run one game loop logic."""
     state = "RUNNING"
     # Check for key presses
@@ -357,6 +388,10 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, ti
                         if block.j == j:
                             to_remove.append(block)
 
+                # Update score
+                score_table = {0: 0, 1: 40, 2: 100, 3: 300, 4: 1200}
+                score += score_table[len(indices_to_clear)]
+
                 # Clear lines
                 for block in to_remove:
                     screen.checksum[block.j][block.i] = 0
@@ -383,15 +418,15 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece, ti
         surf.fill((0, 0, 0))
         for group in borders, active_blocks, inactive_blocks:
             group.draw(surf)
-        pygame.display.flip()
 
-    return state, active_blocks, inactive_blocks, screen, active_piece, timer
+    return state, score, active_blocks, inactive_blocks, screen, active_piece, timer
 
 
 def main(tickrate=30):
     # Define game variables
     clock = pygame.time.Clock()
-    timer = Timer(100, 150)
+    timer = Timer(interval=100, delta=150, soft_delay=100)
+    score = 0
 
     # Process
     screen = Screen(400, epsilon=0.05, left_space=3, right_space=3)
@@ -414,13 +449,18 @@ def main(tickrate=30):
     # Game loop
     while True:
         if state == "RUNNING":
-            state, active_blocks, inactive_blocks, screen, active_piece, timer =\
+            state, score, active_blocks, inactive_blocks, screen, active_piece, timer =\
                 run_game_loop(
-                    active_blocks, inactive_blocks, screen, surf, active_piece, timer, borders)
+                    active_blocks, inactive_blocks, screen, surf,
+                    active_piece, timer, borders, score)
+            # Print score
+            screen.set_score(score)
+            screen.draw_score(surf)
         else:
             # TODO: Score screen
             return
 
+        pygame.display.flip()
         clock.tick(tickrate)
 
 
