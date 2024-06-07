@@ -328,6 +328,23 @@ class Screen:
         screen.blit(score_text, (self.scale/10*(self.left + 12 + 2*delta),
                                  self.scale/10*(3 + 2*delta)))
 
+    def draw_queue(self, surf, queue):
+        """Draw pieces in queue."""
+        # TODO: Add checks to avoid screen overflow OR scale everything!
+        draw_group = pygame.sprite.Group()
+        for i, piece in enumerate(queue[1:]):
+            draw_piece = Tetris(self, piece.block_type)
+            # Align using top left corner
+            left = min([block.i for block in draw_piece.blocks])
+            top = min([block.j for block in draw_piece.blocks])
+            for block in draw_piece.blocks:
+                block.i += 10 - left + 1
+                block.j += 6 - top + (i)*3
+                draw_group.add(block)
+        draw_group.update(self)
+        draw_group.draw(surf)
+        return
+
 
 class Timer:
 
@@ -453,6 +470,7 @@ def run_game_loop(score, mngr, screen, timer, borders, surf):
         surf.fill((0, 0, 0))
         for group in borders, mngr.active_blocks, mngr.inactive_blocks:
             group.draw(surf)
+        screen.draw_queue(surf, mngr.queue)
 
     return state, score, mngr, screen, timer
 
@@ -464,7 +482,7 @@ def main(tickrate=30, n_blocks_in_queue=3):
     score = 0
 
     # Process
-    screen = Screen(400, epsilon=0.05, left_space=3, right_space=3)
+    screen = Screen(400, epsilon=0.05, left_space=3, right_space=4)
     borders, surf = screen.setup_screen()
     surf.fill((0, 0, 0))
     borders.update(screen)
