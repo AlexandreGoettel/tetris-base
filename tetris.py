@@ -367,6 +367,10 @@ class Timer:
         """Update main timer."""
         self.move_down_timer = pygame.time.get_ticks()
 
+    def set_on(self):
+        """Make sure the timer triggers."""
+        self.move_down_timer -= self.move_down_interval
+
     @property
     def can_move_down(self):
         """Check if time has elapsed move down interval"""
@@ -396,6 +400,7 @@ def run_game_loop(score, mngr, screen, timer, borders, surf):
             continue
 
         elif event.key == K_SPACE:
+            timer.set_on()
             while mngr.active_piece.move(screen, "down"):
                 pass
         elif event.key == K_w:
@@ -482,7 +487,7 @@ def main(tickrate=30, n_blocks_in_queue=3):
     score = 0
 
     # Process
-    screen = Screen(400, epsilon=0.05, left_space=3, right_space=4)
+    screen = Screen(400, epsilon=0.05, left_space=4, right_space=4)
     borders, surf = screen.setup_screen()
     surf.fill((0, 0, 0))
     borders.update(screen)
