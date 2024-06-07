@@ -181,8 +181,6 @@ class Tetris:
 
     def reset(self):
         """Reset a piece's position and orientation to just-spawned."""
-        for a in zip(self.blocks, self.coord_table[self.block_type]):
-            print(a)
         for idx, (i, j) in enumerate(zip(*self.coord_table[self.block_type])):
             self.blocks[idx].i, self.blocks[idx].j = i, j
         self.orientation = "N"
