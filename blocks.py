@@ -1,6 +1,5 @@
 import random
 import pygame
-from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_SPACE, K_d, K_s
 
 
 class Bit10:
@@ -84,6 +83,9 @@ class Block(pygame.sprite.Sprite):
         elif direction == "right":
             self.i += 1
 
+    def __repr__(self):
+        return f"Block({self.i}, {self.j})"
+
 
 class Tetris:
     """Hold four blocks in given Tetris shape."""
@@ -98,7 +100,7 @@ class Tetris:
             "T": (128, 0, 128),
             "L": (255, 127, 0),
         }
-        coord_table = {
+        self.coord_table = {
             "O": ((4, 5, 4, 5), (0, 0, 1, 1)),
             "I": ((3, 4, 5, 6), (0, 0, 0, 0)),
             "S": ((3, 4, 4, 5), (0, 0, -1, -1)),
@@ -165,7 +167,7 @@ class Tetris:
                 "W-N": ((0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2))  # L->0
             }
         }
-        # Random with bias against getting same twice in a row
+        # Random with SNES-bias against getting same twice in a row
         if block_type == "random":
             block_type = random.choice(list(colour_table.keys()) + ["random"])
             if block_type == "random" or\
@@ -174,7 +176,15 @@ class Tetris:
 
         self.block_type = block_type
         self.colour = colour_table[block_type]
-        self.blocks = self.assemble(screen, *coord_table[block_type])
+        self.blocks = self.assemble(screen, *self.coord_table[block_type])
+        self.orientation = "N"
+
+    def reset(self):
+        """Reset a piece's position and orientation to just-spawned."""
+        for a in zip(self.blocks, self.coord_table[self.block_type]):
+            print(a)
+        for idx, (i, j) in enumerate(zip(*self.coord_table[self.block_type])):
+            self.blocks[idx].i, self.blocks[idx].j = i, j
         self.orientation = "N"
 
     def assemble(self, screen, x, y):
@@ -240,16 +250,13 @@ class BlockManager:
         for _ in range(n_blocks_in_queue - 1):
             self.queue.append(Tetris(screen, "random", previous=self.queue[-1]))
 
+        self.held_piece = None
+        self.can_hold = True
+
     @property
     def active_piece(self):
         """Getter for the current active piece in the queue."""
         return self.queue[0]
-
-    # def next(self, screen):
-    #     """Get next piece in the queue and re-fill with new random piece"""
-    #     piece = self.queue.pop(0)
-    #     self.queue.append(Tetris(screen, "random"))
-    #     return piece
 
     def remove_active(self, screen):
         """Transition current piece blocks from active to inactive."""
@@ -262,259 +269,17 @@ class BlockManager:
         _ = self.queue.pop(0)
         self.queue.append(Tetris(screen, "random", previous=self.queue[-1]))
         self.active_blocks.add(*self.active_piece.blocks)
+        self.can_hold = True
 
-
-class Screen:
-    """Hold methods and information related to screen placement and drawing."""
-
-    def __init__(self, scale, epsilon=0.05, left_space=3, right_space=3, font=None, ft=32):
-        self.scale = scale
-        self.epsilon = epsilon
-        self.left = left_space
-        self.right = right_space
-        self.checksum = [Bit10() for _ in range(20)]
-        self.score = 0
-        self.font = pygame.font.SysFont(font, ft)
-
-    def setup_screen(self):
-        """Create tetris-ready screen based on scaling factor."""
-        # Define screen & game borders
-        block = self.scale / 10
-        screen_width = self.scale*1.2 + (self.left + self.right) * block
-        screen_height = self.scale*2.1
-        screen = pygame.display.set_mode([screen_width, screen_height])
-
-        # Layer outside edges with grey blocks
-        borders = pygame.sprite.Group()
-        for i in range(12):
-            borders.add(Block(self, i=i - 1, j=20))
-        for j in range(20):
-            for delta in [-1, 10]:
-                borders.add(Block(self, i=delta, j=j))
-
-        # Add score box
-        delta = 0.1
-        box_under = pygame.sprite.Sprite()
-        box_under.image = pygame.Surface([block*(self.right - 2*delta), block*2*(1 - delta)])
-        box_under.image.fill((0, 120, 80))
-        box_under.rect = box_under.image.get_rect()
-        box_under.rect.x, box_under.rect.y = block*(self.left + 12 + delta), block*(3 + delta)
-        borders.add(box_under)
-
-        # Could be replaced by font bkg?
-        box_over = pygame.sprite.Sprite()
-        box_over.image = pygame.Surface([block*(self.right - 4*delta), block*(2 - 4*delta)])
-        box_over.image.fill((255, 255, 255))
-        box_over.rect = box_over.image.get_rect()
-        box_over.rect.x, box_over.rect.y = block*(self.left + 12 + 2*delta), block*(3 + 2*delta)
-        borders.add(box_over)
-
-        self.draw_score(screen, delta=delta)
-        return borders, screen
-
-    def get_coords(self, i, j):
-        """Convert i, j to screen coords."""
-        x_coord = self.scale / 10 * (i + self.left + 1 + self.epsilon / 2)
-        y_coord = self.scale / 10 * (j + self.epsilon / 2)
-        return x_coord, y_coord
-
-    def set_score(self, score):
-        """Setter for score value."""
-        self.score = score
-
-    def draw_score(self, screen, delta=0.1):
-        """Draw score as text."""
-        score_text = self.font.render(str(self.score), True, (0, 0, 0))
-        screen.blit(score_text, (self.scale/10*(self.left + 12 + 2*delta),
-                                 self.scale/10*(3 + 2*delta)))
-
-    def draw_queue(self, surf, queue):
-        """Draw pieces in queue."""
-        # TODO: Add checks to avoid screen overflow OR scale everything!
-        draw_group = pygame.sprite.Group()
-        for i, piece in enumerate(queue[1:]):
-            draw_piece = Tetris(self, piece.block_type)
-            # Align using top left corner
-            left = min([block.i for block in draw_piece.blocks])
-            top = min([block.j for block in draw_piece.blocks])
-            for block in draw_piece.blocks:
-                block.i += 10 - left + 1
-                block.j += 6 - top + (i)*3
-                draw_group.add(block)
-        draw_group.update(self)
-        draw_group.draw(surf)
-        return
-
-
-class Timer:
-
-    def __init__(self, interval=100, delta=150, soft_delay=100):
-        """Set time between block updates and action delta."""
-        self.move_down_interval = interval
-        self.action_delta = delta
-        self.soft_delay = soft_delay
-        self.move_down_timer = 0
-        self.last_action_time = 0
-
-    def delta(self):
-        """Adjust timer to allow for action delay - spam proof."""
-        current_time = pygame.time.get_ticks()
-        if current_time - self.last_action_time >= self.action_delta:
-            self.move_down_timer += self.action_delta
-        self.last_action_time = current_time
-
-    def update(self):
-        """Update main timer."""
-        self.move_down_timer = pygame.time.get_ticks()
-
-    def set_on(self):
-        """Make sure the timer triggers."""
-        self.move_down_timer -= self.move_down_interval
-
-    @property
-    def can_move_down(self):
-        """Check if time has elapsed move down interval"""
-        current_time = pygame.time.get_ticks()
-        return current_time - self.move_down_timer > self.move_down_interval
-
-    @property
-    def can_soft_move(self):
-        """Alternative timer rule for soft movement."""
-        current_time = pygame.time.get_ticks()
-        return current_time > self.last_action_time + self.soft_delay
-
-
-def run_game_loop(score, mngr, screen, timer, borders, surf):
-    """Run one game loop logic."""
-    state = "RUNNING"
-    # Check for key presses
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            state = "SCORESCREEN"
-            continue
-
-        elif event.type != KEYDOWN:
-            continue
-        if event.key == K_ESCAPE:
-            state = "SCORESCREEN"
-            continue
-
-        elif event.key == K_SPACE:
-            timer.set_on()
-            while mngr.active_piece.move(screen, "down"):
-                pass
-        elif event.key == K_w:
-            mngr.active_piece.rotate(screen, "w")
-        elif event.key == K_a:
-            mngr.active_piece.move(screen, "left")
-        elif event.key == K_d:
-            mngr.active_piece.move(screen, "right")
-
-        if event.key in [K_w, K_a, K_d]:
-            timer.delta()
-
-    # Check for continuous movement
-    keys = pygame.key.get_pressed()
-    if (keys[K_a] and keys[K_d]) or not timer.can_soft_move:
-        pass
-
-    elif keys[K_a]:
-        if mngr.active_piece.move(screen, "left"):
-            timer.delta()
-
-    elif keys[K_d]:
-        if mngr.active_piece.move(screen, "right"):
-            timer.delta()
-
-    elif keys[K_s]:
-        if mngr.active_piece.move(screen, "down"):
-            timer.delta()
-
-    # Natural move down
-    if state == "RUNNING":
-        if timer.can_move_down:
-            has_moved_down = mngr.active_piece.move(screen, "down")
-            if not has_moved_down:
-                mngr.remove_active(screen)
-
-                # Check for line clear
-                indices_to_clear, to_remove = [], []
-                for j, line in enumerate(screen.checksum):
-                    if line.checksum != 1023:
-                        continue
-
-                    indices_to_clear.append(j)
-                    for block in mngr.inactive_blocks:
-                        if block.j == j:
-                            to_remove.append(block)
-
-                # Update score
-                score_table = {0: 0, 1: 40, 2: 100, 3: 300, 4: 1200}
-                score += score_table[len(indices_to_clear)]
-
-                # Clear lines
-                for block in to_remove:
-                    screen.checksum[block.j][block.i] = 0
-                    mngr.inactive_blocks.remove(block)
-
-                # Update blocks above cleared lines
-                for j in indices_to_clear:
-                    blocks_to_move = [block for block in mngr.inactive_blocks if block.j < j]
-                    for block in blocks_to_move:
-                        screen.checksum[block.j][block.i] = 0
-
-                    for block in blocks_to_move:
-                        block.move("down")
-                        block.update(screen, update_grid=True)
-
-                mngr.spawn_new_piece(screen)
-
-            timer.update()
-
-        mngr.active_blocks.update(screen)
-        surf.fill((0, 0, 0))
-        for group in borders, mngr.active_blocks, mngr.inactive_blocks:
-            group.draw(surf)
-        screen.draw_queue(surf, mngr.queue)
-
-    return state, score, mngr, screen, timer
-
-
-def main(tickrate=30, n_blocks_in_queue=3):
-    # Define game variables
-    clock = pygame.time.Clock()
-    timer = Timer(interval=200, delta=150, soft_delay=100)
-    score = 0
-
-    # Process
-    screen = Screen(400, epsilon=0.05, left_space=4, right_space=4)
-    borders, surf = screen.setup_screen()
-    surf.fill((0, 0, 0))
-    borders.update(screen)
-    borders.draw(surf)
-
-    # Init blocks and screen
-    mngr = BlockManager(screen, surf, n_blocks_in_queue)
-    pygame.display.flip()
-    state = "RUNNING"
-
-    # Game loop
-    while True:
-        if state == "RUNNING":
-            state, score, mngr, screen, timer = run_game_loop(
-                score, mngr, screen, timer, borders, surf)
-            # Print score
-            screen.set_score(score)
-            screen.draw_score(surf)
+    def hold_piece(self, screen):
+        """Hold current piece and, if existing, place held piece back in play."""
+        previously_held = self.held_piece
+        self.held_piece = self.queue.pop(0)
+        self.active_blocks.remove(*self.held_piece.blocks)
+        if previously_held is not None:
+            self.queue = [previously_held] + self.queue
+            self.can_hold = False
         else:
-            # TODO: Score screen
-            return
-
-        pygame.display.flip()
-        clock.tick(tickrate)
-
-
-if __name__ == '__main__':
-    pygame.init()
-    main()
-    pygame.quit()
+            self.queue.append(Tetris(screen, "random", previous=self.queue[-1]))
+        self.active_piece.reset()
+        self.active_blocks.add(*self.active_piece.blocks)
