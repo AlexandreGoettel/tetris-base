@@ -97,6 +97,8 @@ def run_game_loop(score, mngr, screen, timer, borders, surf):
         if timer.can_move_down:
             has_moved_down = mngr.active_piece.move(screen, "down")
             if not has_moved_down:
+                if any([block.j <= 0 for block in mngr.active_piece.blocks]):
+                    return "SCORESCREEN", score, mngr, screen, timer
                 mngr.remove_active(screen)
 
                 # Check for line clear
@@ -143,7 +145,7 @@ def run_game_loop(score, mngr, screen, timer, borders, surf):
     return state, score, mngr, screen, timer
 
 
-def main(tickrate=30, n_blocks_in_queue=3):
+def run(tickrate=30, n_blocks_in_queue=3):
     # Define game variables
     clock = pygame.time.Clock()
     timer = Timer(interval=200, delta=150, soft_delay=100)
@@ -179,5 +181,5 @@ def main(tickrate=30, n_blocks_in_queue=3):
 
 if __name__ == '__main__':
     pygame.init()
-    main()
+    run()
     pygame.quit()
