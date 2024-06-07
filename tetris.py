@@ -222,6 +222,47 @@ class Tetris:
             return True
         return False
 
+    def __repr__(self):
+        return f"{self.block_type}-piece"
+
+
+class BlockManager:
+    """Manage tetrominos."""
+    def __init__(self, screen, surf, n_blocks_in_queue=3):
+        """Initialise first piece and queue, update screen."""
+        self.active_blocks = pygame.sprite.Group()
+        self.inactive_blocks = pygame.sprite.Group()
+
+        self.queue = [Tetris(screen, "random")]
+        self.active_blocks.add(*self.active_piece.blocks)
+        self.active_blocks.update(screen)
+        self.active_blocks.draw(surf)
+        for _ in range(n_blocks_in_queue - 1):
+            self.queue.append(Tetris(screen, "random", previous=self.queue[-1]))
+
+    @property
+    def active_piece(self):
+        """Getter for the current active piece in the queue."""
+        return self.queue[0]
+
+    # def next(self, screen):
+    #     """Get next piece in the queue and re-fill with new random piece"""
+    #     piece = self.queue.pop(0)
+    #     self.queue.append(Tetris(screen, "random"))
+    #     return piece
+
+    def remove_active(self, screen):
+        """Transition current piece blocks from active to inactive."""
+        self.active_blocks.update(screen, update_grid=True)
+        self.inactive_blocks.add(*self.active_piece.blocks)
+        self.active_blocks.remove(*self.active_piece.blocks)
+
+    def spawn_new_piece(self, screen):
+        """Delete first queue entry, replace with new at end of queue, update vars."""
+        _ = self.queue.pop(0)
+        self.queue.append(Tetris(screen, "random", previous=self.queue[-1]))
+        self.active_blocks.add(*self.active_piece.blocks)
+
 
 class Screen:
     """Hold methods and information related to screen placement and drawing."""
@@ -284,7 +325,8 @@ class Screen:
     def draw_score(self, screen, delta=0.1):
         """Draw score as text."""
         score_text = self.font.render(str(self.score), True, (0, 0, 0))
-        screen.blit(score_text, (self.scale/10*(self.left + 12 + 2*delta), self.scale/10*(3 + 2*delta)))
+        screen.blit(score_text, (self.scale/10*(self.left + 12 + 2*delta),
+                                 self.scale/10*(3 + 2*delta)))
 
 
 class Timer:
@@ -321,8 +363,7 @@ class Timer:
         return current_time > self.last_action_time + self.soft_delay
 
 
-def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
-                  timer, borders, score):
+def run_game_loop(score, mngr, screen, timer, borders, surf):
     """Run one game loop logic."""
     state = "RUNNING"
     # Check for key presses
@@ -338,14 +379,14 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
             continue
 
         elif event.key == K_SPACE:
-            while active_piece.move(screen, "down"):
+            while mngr.active_piece.move(screen, "down"):
                 pass
         elif event.key == K_w:
-            active_piece.rotate(screen, "w")
+            mngr.active_piece.rotate(screen, "w")
         elif event.key == K_a:
-            active_piece.move(screen, "left")
+            mngr.active_piece.move(screen, "left")
         elif event.key == K_d:
-            active_piece.move(screen, "right")
+            mngr.active_piece.move(screen, "right")
 
         if event.key in [K_w, K_a, K_d]:
             timer.delta()
@@ -356,26 +397,23 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
         pass
 
     elif keys[K_a]:
-        if active_piece.move(screen, "left"):
+        if mngr.active_piece.move(screen, "left"):
             timer.delta()
 
     elif keys[K_d]:
-        if active_piece.move(screen, "right"):
+        if mngr.active_piece.move(screen, "right"):
             timer.delta()
 
     elif keys[K_s]:
-        if active_piece.move(screen, "down"):
+        if mngr.active_piece.move(screen, "down"):
             timer.delta()
 
     # Natural move down
     if state == "RUNNING":
         if timer.can_move_down:
-            has_moved_down = active_piece.move(screen, "down")
+            has_moved_down = mngr.active_piece.move(screen, "down")
             if not has_moved_down:
-                # Update board
-                active_blocks.update(screen, update_grid=True)
-                inactive_blocks.add(*active_piece.blocks)
-                active_blocks.remove(*active_piece.blocks)
+                mngr.remove_active(screen)
 
                 # Check for line clear
                 indices_to_clear, to_remove = [], []
@@ -384,7 +422,7 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
                         continue
 
                     indices_to_clear.append(j)
-                    for block in inactive_blocks:
+                    for block in mngr.inactive_blocks:
                         if block.j == j:
                             to_remove.append(block)
 
@@ -395,11 +433,11 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
                 # Clear lines
                 for block in to_remove:
                     screen.checksum[block.j][block.i] = 0
-                    inactive_blocks.remove(block)
+                    mngr.inactive_blocks.remove(block)
 
                 # Update blocks above cleared lines
                 for j in indices_to_clear:
-                    blocks_to_move = [block for block in inactive_blocks if block.j < j]
+                    blocks_to_move = [block for block in mngr.inactive_blocks if block.j < j]
                     for block in blocks_to_move:
                         screen.checksum[block.j][block.i] = 0
 
@@ -407,25 +445,22 @@ def run_game_loop(active_blocks, inactive_blocks, screen, surf, active_piece,
                         block.move("down")
                         block.update(screen, update_grid=True)
 
-                # Spawn new piece
-                active_piece = Tetris(screen, "random", previous=active_piece)
-                active_blocks.add(*active_piece.blocks)
+                mngr.spawn_new_piece(screen)
 
-            # Update time tracking
             timer.update()
 
-        active_blocks.update(screen)
+        mngr.active_blocks.update(screen)
         surf.fill((0, 0, 0))
-        for group in borders, active_blocks, inactive_blocks:
+        for group in borders, mngr.active_blocks, mngr.inactive_blocks:
             group.draw(surf)
 
-    return state, score, active_blocks, inactive_blocks, screen, active_piece, timer
+    return state, score, mngr, screen, timer
 
 
-def main(tickrate=30):
+def main(tickrate=30, n_blocks_in_queue=3):
     # Define game variables
     clock = pygame.time.Clock()
-    timer = Timer(interval=100, delta=150, soft_delay=100)
+    timer = Timer(interval=200, delta=150, soft_delay=100)
     score = 0
 
     # Process
@@ -435,24 +470,16 @@ def main(tickrate=30):
     borders.update(screen)
     borders.draw(surf)
 
-    # Start with falling piece and get new one on stop condition
-    active_blocks = pygame.sprite.Group()
-    inactive_blocks = pygame.sprite.Group()
-
-    active_piece = Tetris(screen, "random")
-    active_blocks.add(*active_piece.blocks)
-    active_blocks.update(screen)
-    active_blocks.draw(surf)
+    # Init blocks and screen
+    mngr = BlockManager(screen, surf, n_blocks_in_queue)
     pygame.display.flip()
     state = "RUNNING"
 
     # Game loop
     while True:
         if state == "RUNNING":
-            state, score, active_blocks, inactive_blocks, screen, active_piece, timer =\
-                run_game_loop(
-                    active_blocks, inactive_blocks, screen, surf,
-                    active_piece, timer, borders, score)
+            state, score, mngr, screen, timer = run_game_loop(
+                score, mngr, screen, timer, borders, surf)
             # Print score
             screen.set_score(score)
             screen.draw_score(surf)
