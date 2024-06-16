@@ -1,5 +1,5 @@
 import pygame
-from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_SPACE, K_d, K_s, K_LSHIFT
+from pygame.locals import KEYDOWN, K_ESCAPE, QUIT, K_w, K_a, K_SPACE, K_d, K_s, K_LSHIFT, K_q
 # Project imports
 from utils import Timer
 from screen import Screen
@@ -30,6 +30,8 @@ def run_game_loop(score, mngr, screen, timer, borders, surf):
                 pass
         elif event.key == K_w:
             mngr.active_piece.rotate(screen, "w")
+        elif event.key == K_q:
+            mngr.active_piece.rotate(screen, "e")
         elif event.key == K_a:
             mngr.active_piece.move(screen, "left")
         elif event.key == K_d:
