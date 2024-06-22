@@ -8,7 +8,72 @@ from blocks import BlockManager
 
 def run_random_ai(mngr, screen):
     """Temporary AI that returns random actions."""
-    return random.choice(["right", "clockwise", "down", "left"])
+    yield random.choice(["right", "clockwise", "left"])
+
+
+def run_simple_ai(mngr, screen):
+    """Simple AI, each action followed by hard drop."""
+    best_score, best_moves = None, None
+
+    orientation_value = {"N": 0, "E": 1, "S": 2, "W": 3}
+    rotation_reference = [(block.i, block.j) for block in mngr.active_piece.blocks]
+    for orientation in ["N", "W", "E", "S"]:
+        # Rotate piece to desired orientation
+        n_clockwise_rotations = orientation_value[orientation]\
+            - orientation_value[mngr.active_piece.orientation]
+        rotations = ["w"]*n_clockwise_rotations if n_clockwise_rotations < 3 else ["e"]
+        for rotation in rotations:
+            mngr.active_piece.rotate(screen, rotation)
+
+        left_most = min([block.i for block in mngr.active_piece.blocks])
+        translation_reference = [(block.i, block.j) for block in mngr.active_piece.blocks]
+        for target_position in range(10):
+            # TODO: This could all be made faster if moves were just mathematical
+            # Move piece to desired i-position
+            n_right_moves = target_position - left_most
+            moves = ["right"]*n_right_moves if n_right_moves >= 0 else ["left"]*-n_right_moves
+            if any([not mngr.active_piece.can_move(screen, move) for move in moves]):
+                continue  # Move not possible
+            for move in moves:
+                mngr.active_piece.move(screen, move)
+
+            # Simulate hard drop
+            moves_down = 0
+            while mngr.active_piece.move(screen, "down"):
+                moves_down += 1
+
+            # Check if any line was cleared
+            new_screen = screen.copy()
+            mngr.active_blocks.update(new_screen, update_grid=True)
+            n_cleared = sum([line.checksum == 1023 for line in new_screen.checksum])
+            # Check if any "gap" exists
+            n_gaps = 0
+            for i in range(len(new_screen.checksum[0])):
+                ref = new_screen.checksum[0][i]
+                for j in range(len(new_screen.checksum)-2, -1, -1):
+                    if not new_screen.checksum[j][i]:
+                        continue
+                    if not ref:
+                        n_gaps += 1
+                    else:
+                        ref = 1
+
+            # Book-keep
+            score = n_cleared * len(screen.checksum) * len(screen.checksum[0]) - n_gaps
+            if best_score is None or best_score < score:
+                best_score = score
+                best_moves = rotations + moves + ["down"]*moves_down
+
+            # Reset for next round
+            for block, (i, j) in zip(mngr.active_piece.blocks, translation_reference):
+                    block.i, block.j = i, j
+        for block, (i, j) in zip(mngr.active_piece.blocks, rotation_reference):
+                block.i, block.j = i, j
+
+    print(best_score, best_moves)
+    mngr.active_blocks.update(screen)
+    for move in best_moves:
+        yield move
 
 
 def run_game_loop(action, score, mngr, screen, borders, surf):
@@ -21,12 +86,11 @@ def run_game_loop(action, score, mngr, screen, borders, surf):
      - hold piece
      - hard drop
     """
-    #FIXME
     for event in pygame.event.get():
         if event.type == KEYDOWN and event.key == K_ESCAPE:
-            return "STOP", score, mngr, screen
+            return "STOP", score, mngr, screen, False
 
-    if action in ["left", "right", "down"]:
+    if action in ["left", "right"]:  # down?
         mngr.active_piece.move(screen, action)
 
     elif action in ["clockwise", "counterclockwise"]:
@@ -41,13 +105,15 @@ def run_game_loop(action, score, mngr, screen, borders, surf):
                 and mngr.held_piece.block_type == mngr.active_piece.block_type):
             mngr.hold_piece(screen)
 
-            # Check
-
     # Now update pieces and score
-    has_moved_down = mngr.active_piece.move(screen, "down")
-    if not has_moved_down:
+    # print(action)
+    has_spawned = False
+    # print([(block.i, block.j) for block in mngr.active_piece.blocks])
+    if not mngr.active_piece.move(screen, "down"):
+        print("SPAWNING NEW PIECE")
+        has_spawned = True
         if any([block.j <= 0 for block in mngr.active_piece.blocks]):
-            return "STOP", score, mngr, screen
+            return "STOP", score, mngr, screen, has_spawned
         mngr.remove_active(screen)
 
         # Check for line clear
@@ -90,7 +156,7 @@ def run_game_loop(action, score, mngr, screen, borders, surf):
     screen.draw_queue(surf, mngr.queue)
     screen.draw_held(surf, mngr.held_piece)
 
-    return "RUNNING", score, mngr, screen
+    return "RUNNING", score, mngr, screen, has_spawned
 
 
 def main():
@@ -110,20 +176,26 @@ def main():
     # Init blocks and screen
     mngr = BlockManager(screen, surf, n_blocks_in_queue)
     pygame.display.flip()
+    ai = run_simple_ai
+    # ai = run_random_ai
 
     # Game loop
     while True:
-        key_presses = run_random_ai(mngr, screen)
-        state, score, mngr, screen = run_game_loop(
-            key_presses, score, mngr, screen, borders, surf)
-        screen.set_score(score)
+        actions = ai(mngr, screen)
+        for action in actions:
+            state, score, mngr, screen, has_spawned = run_game_loop(
+                action, score, mngr, screen, borders, surf)
+            screen.set_score(score)
 
-        if state == "STOP":
-            break
+            if state == "STOP":
+                return
 
-        screen.draw_score(surf)
-        pygame.display.flip()
-        clock.tick(10)
+            screen.draw_score(surf)
+            pygame.display.flip()
+            clock.tick(10)
+
+            if has_spawned:
+                break
 
 
 pygame.init()

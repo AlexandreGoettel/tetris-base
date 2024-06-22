@@ -12,7 +12,15 @@ class Screen:
         self.right = right_space
         self.checksum = [Bit10() for _ in range(20)]
         self.score = 0
-        self.font = pygame.font.SysFont(font, ft)
+        self.font = pygame.font.SysFont(font, ft) if font is None else font
+
+    def copy(self):
+        """Return a new Screen object with same coord info."""
+        new_screen = Screen(self.scale, self.epsilon, self.left, self.right, self.font)
+        for i, row in enumerate(self.checksum):
+            for j, val in enumerate(row):
+                new_screen.checksum[i][j] = val
+        return new_screen
 
     def setup_screen(self):
         """Create tetris-ready screen based on scaling factor."""

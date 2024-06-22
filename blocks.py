@@ -18,6 +18,8 @@ class Bit10:
 
     def get_bit(self, i):
         """Get bit value at position i."""
+        if i < 0 or i >= 10:
+            raise IndexError("Index out of range")
         return (self.checksum >> i) & 1
 
     def __getitem__(self, i):
@@ -35,7 +37,6 @@ class Bit10:
 
     def __len__(self):
         return 10
-
 
 class Block(pygame.sprite.Sprite):
 
@@ -82,6 +83,8 @@ class Block(pygame.sprite.Sprite):
             self.i -= 1
         elif direction == "right":
             self.i += 1
+        elif direction == "up":
+            self.j -= 1
 
     def __repr__(self):
         return f"Block({self.i}, {self.j})"
@@ -234,12 +237,16 @@ class Tetris:
                     block.j += dyi + kicky
                 return
 
-    def move(self, screen, direction):
-        """Move either "down", "left", or "right"."""
+    def can_move(self, screen, direction):
+        """Check if a move is possible."""
         for block in self.blocks:
             if not block.check_move(screen, direction):
-                break
-        else:
+                return False
+        return True
+
+    def move(self, screen, direction):
+        """Move either "down", "left", or "right"."""
+        if self.can_move(screen, direction):
             for block in self.blocks:
                 block.move(direction)
             return True
